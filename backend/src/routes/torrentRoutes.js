@@ -5,7 +5,8 @@ const path = require('path');
 
 const {
     downloadTorrent,
-    uploadAndDownloadTorrent
+    uploadAndDownloadTorrent,
+    zipDownloadedFiles
 } = require('../controllers/torrentController');
 
 // Multer setup for file uploads
@@ -18,5 +19,8 @@ router.post('/download', downloadTorrent);
 
 // Download torrent via file upload
 router.post('/upload', upload.single('torrentFile'), uploadAndDownloadTorrent);
+
+// Route to zip downloaded files
+router.get('/zip/:sessionId', zipDownloadedFiles);
 
 module.exports = router;

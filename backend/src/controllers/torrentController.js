@@ -30,7 +30,7 @@ async function downloadFiles(torrent, downloadDir, abortSignal) {
 
                 fileWriteStream.on('finish', () => {
                     abortSignal.removeEventListener('abort', onAbort);
-                    resolve(torrentFilePath); // Resolve with file path after write finishes
+                    resolve();
                 });
                 fileWriteStream.on('error', (error) => {
                     abortSignal.removeEventListener('abort', onAbort);
@@ -42,33 +42,7 @@ async function downloadFiles(torrent, downloadDir, abortSignal) {
         });
 
         Promise.all(downloadPromises)
-            .then((filePaths) => {
-                // All files downloaded, now create a zip archive
-                const zipFilePath = path.join(downloadDir, 'downloaded_files.zip');
-                const outputZipStream = fs.createWriteStream(zipFilePath);
-                const archive = archiver('zip', {
-                    zlib: { level: 9 } // Sets the compression level
-                });
-
-                outputZipStream.on('close', () => {
-                    console.log(`Zip archive created successfully: ${archive.pointer()} total bytes`);
-                    resolve(zipFilePath); // Resolve with zip file path after zip creation
-                });
-
-                archive.on('error', (err) => {
-                    reject(err);
-                });
-
-                archive.pipe(outputZipStream);
-
-                // Add all downloaded files to the zip archive
-                filePaths.forEach(filePath => {
-                    const fileName = path.basename(filePath);
-                    archive.file(filePath, { name: fileName });
-                });
-
-                archive.finalize();
-            })
+            .then(resolve)
             .catch(reject);
     });
 }
@@ -203,5 +177,43 @@ exports.uploadAndDownloadTorrent = async (req, res) => {
     } catch (error) {
         console.error('Error downloading torrent:', error);
         res.status(500).json({ message: error.message || 'Failed to download torrent' });
+    }
+};
+
+// Controller method to zip downloaded files
+exports.zipDownloadedFiles = async (req, res) => {
+    const { sessionId } = req.params;
+    const downloadDir = path.join(__dirname, '..', 'downloads', sessionId);
+
+    try {
+        const files = fs.readdirSync(downloadDir);
+
+        const zipFilePath = path.join(downloadDir, 'downloaded_files.zip');
+        const outputZipStream = fs.createWriteStream(zipFilePath);
+        const archive = archiver('zip', {
+            zlib: { level: 9 } // Sets the compression level
+        });
+
+        outputZipStream.on('close', () => {
+            console.log(`Zip archive created successfully: ${archive.pointer()} total bytes`);
+            res.download(zipFilePath, 'downloaded_files.zip'); // Send the zip file as a download
+        });
+
+        archive.on('error', (err) => {
+            console.error('Error creating zip archive:', err);
+            res.status(500).json({ message: 'Failed to create zip archive' });
+        });
+
+        archive.pipe(outputZipStream);
+
+        files.forEach(file => {
+            const filePath = path.join(downloadDir, file);
+            archive.file(filePath, { name: file });
+        });
+
+        archive.finalize();
+    } catch (error) {
+        console.error('Error zipping downloaded files:', error);
+        res.status(500).json({ message: 'Failed to zip downloaded files' });
     }
 };
