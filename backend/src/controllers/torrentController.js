@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const { AbortController } = require('abort-controller');
+const archiver = require('archiver');
 
 const sanitizeFilename = (filename) => {
     // Remove characters not supported by file systems
@@ -29,7 +30,7 @@ async function downloadFiles(torrent, downloadDir, abortSignal) {
 
                 fileWriteStream.on('finish', () => {
                     abortSignal.removeEventListener('abort', onAbort);
-                    resolve();
+                    resolve(torrentFilePath); // Resolve with file path after write finishes
                 });
                 fileWriteStream.on('error', (error) => {
                     abortSignal.removeEventListener('abort', onAbort);
@@ -41,7 +42,33 @@ async function downloadFiles(torrent, downloadDir, abortSignal) {
         });
 
         Promise.all(downloadPromises)
-            .then(resolve)
+            .then((filePaths) => {
+                // All files downloaded, now create a zip archive
+                const zipFilePath = path.join(downloadDir, 'downloaded_files.zip');
+                const outputZipStream = fs.createWriteStream(zipFilePath);
+                const archive = archiver('zip', {
+                    zlib: { level: 9 } // Sets the compression level
+                });
+
+                outputZipStream.on('close', () => {
+                    console.log(`Zip archive created successfully: ${archive.pointer()} total bytes`);
+                    resolve(zipFilePath); // Resolve with zip file path after zip creation
+                });
+
+                archive.on('error', (err) => {
+                    reject(err);
+                });
+
+                archive.pipe(outputZipStream);
+
+                // Add all downloaded files to the zip archive
+                filePaths.forEach(filePath => {
+                    const fileName = path.basename(filePath);
+                    archive.file(filePath, { name: fileName });
+                });
+
+                archive.finalize();
+            })
             .catch(reject);
     });
 }
@@ -115,14 +142,31 @@ exports.uploadAndDownloadTorrent = async (req, res) => {
 
     try {
         const torrentFilePath = req.file.path;
+        console.log(`Torrent file path: ${torrentFilePath}`); // Debugging line
         const WebTorrent = (await import('webtorrent')).default;
         const client = new WebTorrent();
 
         const torrent = await client.add(torrentFilePath);
 
+        torrent.on('infoHash', () => {
+            console.log(`Torrent info hash: ${torrent.infoHash}`); // Debugging line
+        });
+
+        torrent.on('metadata', () => {
+            console.log('Metadata received'); // Debugging line
+        });
+
+        torrent.on('ready', () => {
+            console.log('Torrent ready'); // Debugging line
+        });
+
         torrent.on('download', (bytes) => {
             const percent = (torrent.progress * 100).toFixed(2);
             console.log(`Downloaded: ${percent}%`);
+        });
+
+        torrent.on('done', () => {
+            console.log('Download complete'); // Debugging line
         });
 
         const sessionId = uuidv4();
