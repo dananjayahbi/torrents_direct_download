@@ -1,13 +1,15 @@
 // src/controllers/torrentController.js
 const fs = require('fs');
 const path = require('path');
+const { v4: uuidv4 } = require('uuid');
+const { AbortController } = require('abort-controller');
 
 const sanitizeFilename = (filename) => {
     // Remove characters not supported by file systems
     return filename.replace(/[\/\\:*?"<>|]/g, '-');
 };
 
-async function downloadFiles(torrent, downloadDir) {
+async function downloadFiles(torrent, downloadDir, abortSignal) {
     return new Promise((resolve, reject) => {
         const downloadPromises = torrent.files.map(file => {
             const sanitizedFilename = sanitizeFilename(file.path);
@@ -15,9 +17,26 @@ async function downloadFiles(torrent, downloadDir) {
             const fileWriteStream = fs.createWriteStream(torrentFilePath);
 
             return new Promise((resolve, reject) => {
-                file.createReadStream().pipe(fileWriteStream);
-                fileWriteStream.on('finish', resolve);
-                fileWriteStream.on('error', reject);
+                const stream = file.createReadStream();
+
+                const onAbort = () => {
+                    stream.destroy();
+                    fileWriteStream.destroy();
+                    reject(new Error('Download aborted'));
+                };
+
+                abortSignal.addEventListener('abort', onAbort);
+
+                fileWriteStream.on('finish', () => {
+                    abortSignal.removeEventListener('abort', onAbort);
+                    resolve();
+                });
+                fileWriteStream.on('error', (error) => {
+                    abortSignal.removeEventListener('abort', onAbort);
+                    reject(error);
+                });
+
+                stream.pipe(fileWriteStream);
             });
         });
 
@@ -30,6 +49,12 @@ async function downloadFiles(torrent, downloadDir) {
 // Controller method
 exports.downloadTorrent = async (req, res) => {
     const { magnetLink } = req.body;
+    const abortController = new AbortController();
+
+    req.on('close', () => {
+        console.log('Request canceled');
+        abortController.abort();
+    });
 
     try {
         // Use dynamic import() for WebTorrent
@@ -38,7 +63,15 @@ exports.downloadTorrent = async (req, res) => {
 
         const torrent = await client.add(magnetLink);
 
-        const downloadDir = path.join(__dirname, '..', 'downloads');
+        // Listen for progress events
+        torrent.on('download', (bytes) => {
+            const percent = (torrent.progress * 100).toFixed(2);
+            console.log(`Downloaded: ${percent}%`);
+        });
+
+        // Create a unique folder for the download session
+        const sessionId = uuidv4();
+        const downloadDir = path.join(__dirname, '..', 'downloads', sessionId);
 
         // Ensure the downloads directory exists
         fs.mkdirSync(downloadDir, { recursive: true });
@@ -65,12 +98,12 @@ exports.downloadTorrent = async (req, res) => {
         await checkFiles();
 
         // Download files
-        await downloadFiles(torrent, downloadDir);
+        await downloadFiles(torrent, downloadDir, abortController.signal);
 
         // Destroy the client instance
         client.destroy();
 
-        res.json({ message: 'Torrent downloaded successfully' });
+        res.json({ message: 'Torrent downloaded successfully', downloadDir });
     } catch (error) {
         console.error('Error downloading torrent:', error);
         res.status(500).json({ message: error.message || 'Failed to download torrent' });
