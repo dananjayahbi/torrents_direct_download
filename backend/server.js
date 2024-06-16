@@ -20,13 +20,13 @@ app.listen(PORT, () => {
   });
 
 //Setting up the database connection
-const URL = process.env.MONGO_URI;
+// const URL = process.env.MONGO_URI;
 
-mongoose.set("strictQuery", true);
-mongoose.connect(URL, { useNewUrlParser: true });
+// mongoose.set("strictQuery", true);
+// mongoose.connect(URL, { useNewUrlParser: true });
 
-const connection = mongoose.connection;
+// const connection = mongoose.connection;
 
-connection.once("open", () => {
-  console.log("MongoDB connection established successfully!");
-});
+// connection.once("open", () => {
+//   console.log("MongoDB connection established successfully!");
+// });
