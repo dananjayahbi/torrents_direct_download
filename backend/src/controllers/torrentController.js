@@ -46,7 +46,7 @@ async function downloadFiles(torrent, downloadDir, abortSignal) {
     });
 }
 
-// Controller method
+// Controller method for magnet link download
 exports.downloadTorrent = async (req, res) => {
     const { magnetLink } = req.body;
     const abortController = new AbortController();
@@ -57,28 +57,24 @@ exports.downloadTorrent = async (req, res) => {
     });
 
     try {
-        // Use dynamic import() for WebTorrent
         const WebTorrent = (await import('webtorrent')).default;
         const client = new WebTorrent();
 
         const torrent = await client.add(magnetLink);
 
-        // Listen for progress events
         torrent.on('download', (bytes) => {
             const percent = (torrent.progress * 100).toFixed(2);
             console.log(`Downloaded: ${percent}%`);
         });
 
-        // Create a unique folder for the download session
         const sessionId = uuidv4();
         const downloadDir = path.join(__dirname, '..', 'downloads', sessionId);
 
-        // Ensure the downloads directory exists
         fs.mkdirSync(downloadDir, { recursive: true });
 
         let retries = 0;
         const maxRetries = 5;
-        const retryDelay = 2000; // 2 seconds
+        const retryDelay = 2000;
 
         async function checkFiles() {
             if (torrent.files && torrent.files.length > 0) {
@@ -89,7 +85,7 @@ exports.downloadTorrent = async (req, res) => {
                 retries++;
                 console.log(`Retrying (${retries}/${maxRetries})...`);
                 await new Promise(resolve => setTimeout(resolve, retryDelay));
-                await checkFiles(); // Recursive call to retry
+                await checkFiles();
             } else {
                 throw new Error('Maximum retries reached. Torrent does not contain any files.');
             }
@@ -97,10 +93,66 @@ exports.downloadTorrent = async (req, res) => {
 
         await checkFiles();
 
-        // Download files
         await downloadFiles(torrent, downloadDir, abortController.signal);
 
-        // Destroy the client instance
+        client.destroy();
+
+        res.json({ message: 'Torrent downloaded successfully', downloadDir });
+    } catch (error) {
+        console.error('Error downloading torrent:', error);
+        res.status(500).json({ message: error.message || 'Failed to download torrent' });
+    }
+};
+
+// Controller method for file upload download
+exports.uploadAndDownloadTorrent = async (req, res) => {
+    const abortController = new AbortController();
+
+    req.on('close', () => {
+        console.log('Request canceled');
+        abortController.abort();
+    });
+
+    try {
+        const torrentFilePath = req.file.path;
+        const WebTorrent = (await import('webtorrent')).default;
+        const client = new WebTorrent();
+
+        const torrent = await client.add(torrentFilePath);
+
+        torrent.on('download', (bytes) => {
+            const percent = (torrent.progress * 100).toFixed(2);
+            console.log(`Downloaded: ${percent}%`);
+        });
+
+        const sessionId = uuidv4();
+        const downloadDir = path.join(__dirname, '..', 'downloads', sessionId);
+
+        fs.mkdirSync(downloadDir, { recursive: true });
+
+        let retries = 0;
+        const maxRetries = 5;
+        const retryDelay = 2000;
+
+        async function checkFiles() {
+            if (torrent.files && torrent.files.length > 0) {
+                return;
+            }
+
+            if (retries < maxRetries) {
+                retries++;
+                console.log(`Retrying (${retries}/${maxRetries})...`);
+                await new Promise(resolve => setTimeout(resolve, retryDelay));
+                await checkFiles();
+            } else {
+                throw new Error('Maximum retries reached. Torrent does not contain any files.');
+            }
+        }
+
+        await checkFiles();
+
+        await downloadFiles(torrent, downloadDir, abortController.signal);
+
         client.destroy();
 
         res.json({ message: 'Torrent downloaded successfully', downloadDir });
