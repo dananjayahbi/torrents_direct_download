@@ -3,13 +3,25 @@ const express = require('express');
 const mongoose = require('mongoose');
 require('dotenv').config();
 const cors = require("cors");
+const http = require('http');
+const socketIo = require('socket.io');
+
 
 const app = express();
 const PORT = process.env.PORT || 8060;
+const server = http.createServer(app);
+const io = socketIo(server);
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: 'http://localhost:5173', // Replace with your frontend URL
+  methods: ['GET', 'POST'], // Allow only GET and POST requests
+  allowedHeaders: ['Content-Type'],
+}));
 app.use(express.json());
+
+// Attach io to app
+app.set('io', io);
 
 // Routes
 const torrentRoutes = require('./src/routes/torrentRoutes');

@@ -98,7 +98,7 @@ exports.downloadTorrent = async (req, res) => {
 
         client.destroy();
 
-        res.json({ message: 'Torrent downloaded successfully', downloadDir });
+        res.json({ message: 'Torrent downloaded successfully', sessionId }); // Send session ID to frontend
     } catch (error) {
         console.error('Error downloading torrent:', error);
         res.status(500).json({ message: error.message || 'Failed to download torrent' });
@@ -173,7 +173,7 @@ exports.uploadAndDownloadTorrent = async (req, res) => {
 
         client.destroy();
 
-        res.json({ message: 'Torrent downloaded successfully', downloadDir });
+        res.json({ message: 'Torrent downloaded successfully', sessionId }); // Send session ID to frontend
     } catch (error) {
         console.error('Error downloading torrent:', error);
         res.status(500).json({ message: error.message || 'Failed to download torrent' });
