@@ -3,10 +3,11 @@ const router = require('express').Router();
 const multer = require('multer');
 const path = require('path');
 
+// Ensure the import includes zipDownloadFiles
 const {
     downloadTorrent,
     uploadAndDownloadTorrent,
-    zipDownloadedFiles
+    zipDownloadFiles // Ensure this is imported
 } = require('../controllers/torrentController');
 
 // Multer setup for file uploads
@@ -21,6 +22,6 @@ router.post('/download', downloadTorrent);
 router.post('/upload', upload.single('torrentFile'), uploadAndDownloadTorrent);
 
 // Route to zip downloaded files
-router.get('/zip/:sessionId', zipDownloadedFiles);
+router.post('/zip', zipDownloadFiles); // Ensure this is correctly used
 
 module.exports = router;

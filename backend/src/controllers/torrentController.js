@@ -30,7 +30,7 @@ async function downloadFiles(torrent, downloadDir, abortSignal) {
 
                 fileWriteStream.on('finish', () => {
                     abortSignal.removeEventListener('abort', onAbort);
-                    resolve();
+                    resolve(torrentFilePath);
                 });
                 fileWriteStream.on('error', (error) => {
                     abortSignal.removeEventListener('abort', onAbort);
@@ -42,7 +42,9 @@ async function downloadFiles(torrent, downloadDir, abortSignal) {
         });
 
         Promise.all(downloadPromises)
-            .then(resolve)
+            .then((filePaths) => {
+                resolve(filePaths);
+            })
             .catch(reject);
     });
 }
@@ -98,7 +100,7 @@ exports.downloadTorrent = async (req, res) => {
 
         client.destroy();
 
-        res.json({ message: 'Torrent downloaded successfully', sessionId }); // Send session ID to frontend
+        res.json({ message: 'Torrent downloaded successfully', sessionId });
     } catch (error) {
         console.error('Error downloading torrent:', error);
         res.status(500).json({ message: error.message || 'Failed to download torrent' });
@@ -116,22 +118,22 @@ exports.uploadAndDownloadTorrent = async (req, res) => {
 
     try {
         const torrentFilePath = req.file.path;
-        console.log(`Torrent file path: ${torrentFilePath}`); // Debugging line
+        console.log(`Torrent file path: ${torrentFilePath}`);
         const WebTorrent = (await import('webtorrent')).default;
         const client = new WebTorrent();
 
         const torrent = await client.add(torrentFilePath);
 
         torrent.on('infoHash', () => {
-            console.log(`Torrent info hash: ${torrent.infoHash}`); // Debugging line
+            console.log(`Torrent info hash: ${torrent.infoHash}`);
         });
 
         torrent.on('metadata', () => {
-            console.log('Metadata received'); // Debugging line
+            console.log('Metadata received');
         });
 
         torrent.on('ready', () => {
-            console.log('Torrent ready'); // Debugging line
+            console.log('Torrent ready');
         });
 
         torrent.on('download', (bytes) => {
@@ -140,7 +142,7 @@ exports.uploadAndDownloadTorrent = async (req, res) => {
         });
 
         torrent.on('done', () => {
-            console.log('Download complete'); // Debugging line
+            console.log('Download complete');
         });
 
         const sessionId = uuidv4();
@@ -173,7 +175,7 @@ exports.uploadAndDownloadTorrent = async (req, res) => {
 
         client.destroy();
 
-        res.json({ message: 'Torrent downloaded successfully', sessionId }); // Send session ID to frontend
+        res.json({ message: 'Torrent downloaded successfully', sessionId });
     } catch (error) {
         console.error('Error downloading torrent:', error);
         res.status(500).json({ message: error.message || 'Failed to download torrent' });
@@ -181,39 +183,42 @@ exports.uploadAndDownloadTorrent = async (req, res) => {
 };
 
 // Controller method to zip downloaded files
-exports.zipDownloadedFiles = async (req, res) => {
-    const { sessionId } = req.params;
-    const downloadDir = path.join(__dirname, '..', 'downloads', sessionId);
+exports.zipDownloadFiles = async (req, res) => {
+    const { sessionId } = req.body;
 
     try {
-        const files = fs.readdirSync(downloadDir);
+        const downloadDir = path.join(__dirname, '..', 'downloads', sessionId);
+
+        if (!fs.existsSync(downloadDir)) {
+            return res.status(400).json({ message: 'Download directory not found' });
+        }
 
         const zipFilePath = path.join(downloadDir, 'downloaded_files.zip');
-        const outputZipStream = fs.createWriteStream(zipFilePath);
         const archive = archiver('zip', {
             zlib: { level: 9 } // Sets the compression level
         });
 
-        outputZipStream.on('close', () => {
-            console.log(`Zip archive created successfully: ${archive.pointer()} total bytes`);
-            res.download(zipFilePath, 'downloaded_files.zip'); // Send the zip file as a download
-        });
-
         archive.on('error', (err) => {
-            console.error('Error creating zip archive:', err);
-            res.status(500).json({ message: 'Failed to create zip archive' });
+            throw err;
         });
 
-        archive.pipe(outputZipStream);
+        // Pipe the archive data to the response
+        res.setHeader('Content-Disposition', 'attachment; filename=downloaded_files.zip');
+        res.setHeader('Content-Type', 'application/zip');
+        archive.pipe(res);
 
-        files.forEach(file => {
+        // Add all downloaded files to the zip archive
+        fs.readdirSync(downloadDir).forEach(file => {
             const filePath = path.join(downloadDir, file);
-            archive.file(filePath, { name: file });
+            if (filePath !== zipFilePath) {
+                archive.file(filePath, { name: file });
+            }
         });
 
-        archive.finalize();
+        // Finalize the archive (i.e., finish writing the files to the zip)
+        await archive.finalize();
     } catch (error) {
-        console.error('Error zipping downloaded files:', error);
-        res.status(500).json({ message: 'Failed to zip downloaded files' });
+        console.error('Error zipping files:', error);
+        res.status(500).json({ message: error.message || 'Failed to zip files' });
     }
 };

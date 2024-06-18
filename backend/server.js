@@ -13,10 +13,11 @@ const server = http.createServer(app);
 const io = socketIo(server);
 
 // Middleware
+// app.use(cors());
 app.use(cors({
-  origin: 'http://localhost:5173', // Replace with your frontend URL
+  origin: 'http://localhost:5173', // Allow requests from this origin
   methods: ['GET', 'POST'], // Allow only GET and POST requests
-  allowedHeaders: ['Content-Type'],
+  allowedHeaders: ['Content-Type'], // Allow only Content-Type header
 }));
 app.use(express.json());
 
