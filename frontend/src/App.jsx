@@ -3,7 +3,7 @@ import { Layout, Upload, Button, Input, message, Form } from "antd";
 import { UploadOutlined } from "@ant-design/icons";
 import axios from "axios";
 
-const { Header, Content, Footer } = Layout;
+const { Content, Footer } = Layout;
 
 const App = () => {
   const [file, setFile] = useState(null);
@@ -58,34 +58,32 @@ const App = () => {
 
   const handleDownloadZip = async () => {
     setLoading(true);
-  
+
     try {
-      fetch(`http://localhost:5000/api/torrents/zip`,
-      {
-        method: 'POST',
+      fetch(`http://localhost:5000/api/torrents/zip`, {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({ sessionId }),
       })
-      .then((response) => response.blob())
-      .then((blob) => {
-        // Create a link element
-        const link = document.createElement("a");
-        // Create a URL for the blob and set it as the href attribute
-        link.href = window.URL.createObjectURL(blob);
-        // Set the download attribute to specify the filename
-        link.download = "xyz.zip";
-        // Append the link to the body
-        document.body.appendChild(link);
-        // Programmatically click the link to trigger the download
-        link.click();
-        // Remove the link from the document
-        link.parentNode.removeChild(link);
-      });
-
+        .then((response) => response.blob())
+        .then((blob) => {
+          // Create a link element
+          const link = document.createElement("a");
+          // Create a URL for the blob and set it as the href attribute
+          link.href = window.URL.createObjectURL(blob);
+          // Set the download attribute to specify the filename
+          link.download = "xyz.zip";
+          // Append the link to the body
+          document.body.appendChild(link);
+          // Programmatically click the link to trigger the download
+          link.click();
+          // Remove the link from the document
+          link.parentNode.removeChild(link);
+        });
     } catch (error) {
-      message.error('Failed to download zip file');
+      message.error("Failed to download zip file");
       console.error(error);
     } finally {
       setLoading(false);
@@ -99,10 +97,6 @@ const App = () => {
 
   return (
     <Layout className="layout">
-      <Header>
-        <div className="logo" />
-        <h1 style={{ color: "white" }}>Torrent Downloader</h1>
-      </Header>
       <Content style={{ padding: "50px 50px" }}>
         <div className="site-layout-content" style={{ textAlign: "center" }}>
           <Form layout="vertical">
