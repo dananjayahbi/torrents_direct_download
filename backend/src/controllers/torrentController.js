@@ -1,9 +1,11 @@
 // src/controllers/torrentController.js
+// const parseTorrent = require('parse-torrent');
 const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const { AbortController } = require('abort-controller');
 const archiver = require('archiver');
+
 
 const sanitizeFilename = (filename) => {
     // Remove characters not supported by file systems
@@ -49,6 +51,12 @@ async function downloadFiles(torrent, downloadDir, abortSignal) {
     });
 }
 
+// Define a function to validate magnet links
+function isValidMagnetLink(magnetLink) {
+    const magnetPattern = /^magnet:\?xt=urn:btih:[a-zA-Z0-9]{32,40}.*$/;
+    return magnetPattern.test(magnetLink);
+}
+
 // Controller method for magnet link download
 exports.downloadTorrent = async (req, res) => {
     const { magnetLink } = req.body;
@@ -60,10 +68,22 @@ exports.downloadTorrent = async (req, res) => {
     });
 
     try {
+
+        // Validate the magnet link before proceeding
+        if (!isValidMagnetLink(magnetLink)) {
+            return res.status(400).json({ message: 'Invalid magnet link provided.' });
+        }
+
         const WebTorrent = (await import('webtorrent')).default;
         const client = new WebTorrent();
 
-        const torrent = await client.add(magnetLink);
+        let torrent;
+        try {
+            torrent = await client.add(magnetLink);
+        } catch (error) {
+            console.error('Error adding torrent:', error);
+            return res.status(400).json({ message: 'Invalid magnet link or error adding torrent.' });
+        }
 
         torrent.on('download', (bytes) => {
             const percent = (torrent.progress * 100).toFixed(2);
@@ -119,11 +139,26 @@ exports.uploadAndDownloadTorrent = async (req, res) => {
     try {
         const torrentFilePath = req.file.path;
         console.log(`Torrent file path: ${torrentFilePath}`);
-        const WebTorrent = (await import('webtorrent')).default;
+
+        let WebTorrent;
+        try {
+            WebTorrent = (await import('webtorrent')).default;
+        } catch (error) {
+            console.error('Failed to import WebTorrent:', error);
+            return res.status(500).json({ message: 'Failed to import WebTorrent' });
+        }
+
         const client = new WebTorrent();
 
-        const torrent = await client.add(torrentFilePath);
+        let torrent;
+        try {
+            torrent = await client.add(torrentFilePath);
+        } catch (error) {
+            console.error('Failed to add torrent:', error);
+            return res.status(500).json({ message: 'Failed to add torrent' });
+        }
 
+        // Torrent event listeners
         torrent.on('infoHash', () => {
             console.log(`Torrent info hash: ${torrent.infoHash}`);
         });
@@ -169,9 +204,19 @@ exports.uploadAndDownloadTorrent = async (req, res) => {
             }
         }
 
-        await checkFiles();
+        try {
+            await checkFiles();
+        } catch (error) {
+            console.error('Failed to verify torrent files:', error);
+            return res.status(500).json({ message: 'Failed to verify torrent files' });
+        }
 
-        await downloadFiles(torrent, downloadDir, abortController.signal);
+        try {
+            await downloadFiles(torrent, downloadDir, abortController.signal);
+        } catch (error) {
+            console.error('Failed to download files:', error);
+            return res.status(500).json({ message: 'Failed to download files' });
+        }
 
         client.destroy();
 

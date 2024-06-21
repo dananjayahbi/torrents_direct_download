@@ -1,12 +1,15 @@
 import React, { useState } from "react";
 import { Layout, Upload, Button, Input, message, Form } from "antd";
-import { UploadOutlined } from "@ant-design/icons";
+import { InboxOutlined } from "@ant-design/icons";
 import axios from "axios";
+import "./App.css";
 
 const { Content, Footer } = Layout;
+const { Dragger } = Upload;
 
 const App = () => {
   const [file, setFile] = useState(null);
+  const [fileList, setFileList] = useState([]); // State to manage file list
   const [magnetLink, setMagnetLink] = useState("");
   const [loading, setLoading] = useState(false);
   const [sessionId, setSessionId] = useState(null); // State to store session ID
@@ -92,37 +95,74 @@ const App = () => {
 
   const beforeUpload = (file) => {
     setFile(file);
+    setFileList([file]); // Update file list with selected file
     return false;
   };
 
+  const handleRemove = () => {
+    setFile(null);
+    setFileList([]);
+  };
+
   return (
-    <Layout className="layout">
+    <Layout className="layout" style={{ minHeight: "100vh" }}>
       <Content style={{ padding: "50px 50px" }}>
-        <div className="site-layout-content" style={{ textAlign: "center" }}>
+        <div
+          className="site-layout-content"
+          style={{
+            textAlign: "center",
+            display: "flex",
+            justifyContent: "center",
+          }}
+        >
           <Form layout="vertical">
-            <Form.Item label="Magnet Link">
-              <Input
-                placeholder="Enter magnet link"
-                value={magnetLink}
-                onChange={(e) => setMagnetLink(e.target.value)}
-                disabled={loading}
-              />
-            </Form.Item>
-            <Form.Item label="Or Upload Torrent File">
-              <Upload beforeUpload={beforeUpload} maxCount={1}>
-                <Button icon={<UploadOutlined />} disabled={loading}>
-                  Select Torrent File
-                </Button>
-              </Upload>
-            </Form.Item>
-            <Button
-              type="primary"
-              onClick={handleUpload}
-              loading={loading}
-              style={{ marginTop: 16 }}
-            >
-              Start Download
-            </Button>
+            <p style={{ textAlign: "left", marginBottom: "10px" }}>
+              Magnet Link
+            </p>
+            <div className="magnet-link-container">
+              <Form.Item style={{ paddingTop: "20px" }}>
+                <Input
+                  placeholder="Enter magnet link"
+                  value={magnetLink}
+                  onChange={(e) => setMagnetLink(e.target.value)}
+                  disabled={loading}
+                />
+              </Form.Item>
+            </div>
+            <p style={{ margin: "50px 0 20px 0" }}>OR</p>
+            <div style={{ width: "600px" }}>
+              <Form.Item label="Upload Torrent File">
+                <Dragger
+                  beforeUpload={beforeUpload}
+                  fileList={fileList}
+                  onRemove={handleRemove}
+                  maxCount={1}
+                  disabled={loading}
+                  accept=".torrent"
+                >
+                  <p className="ant-upload-drag-icon">
+                    <InboxOutlined />
+                  </p>
+                  <p className="ant-upload-text">
+                    Click or drag file to this area to upload
+                  </p>
+                  <p className="ant-upload-hint">
+                    Support for a single upload. Strictly prohibit from
+                    uploading company data or other band files
+                  </p>
+                </Dragger>
+              </Form.Item>
+            </div>
+            {!sessionId && (
+              <Button
+                type="primary"
+                onClick={handleUpload}
+                loading={loading}
+                style={{ marginTop: 16 }}
+              >
+                Start Download
+              </Button>
+            )}
             {sessionId && (
               <Button
                 type="primary"
