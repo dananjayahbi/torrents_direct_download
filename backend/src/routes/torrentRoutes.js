@@ -19,7 +19,13 @@ const upload = multer({
 router.post('/download', downloadTorrent);
 
 // Download torrent via file upload
-router.post('/upload', upload.single('torrentFile'), uploadAndDownloadTorrent);
+router.post('/upload', upload.single('torrentFile'), (req, res, next) => {
+    // Check if the uploaded file has a .torrent extension before proceeding
+    if (path.extname(req.file.originalname) !== '.torrent') {
+        return res.status(400).json({ error: 'Invalid file format. Only .torrent files are allowed.' });
+    }
+    uploadAndDownloadTorrent(req, res, next);
+});
 
 // Route to zip downloaded files
 router.post('/zip', zipDownloadFiles); // Ensure this is correctly used

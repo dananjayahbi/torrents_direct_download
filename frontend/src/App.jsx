@@ -3,6 +3,7 @@ import { Layout, Upload, Button, Input, message, Form } from "antd";
 import { InboxOutlined } from "@ant-design/icons";
 import axios from "axios";
 import "./App.css";
+import bgImg from "./assets/background-img.png";
 
 const { Content, Footer } = Layout;
 const { Dragger } = Upload;
@@ -105,8 +106,22 @@ const App = () => {
   };
 
   return (
-    <Layout className="layout" style={{ minHeight: "100vh" }}>
+    <Layout
+      className="layout"
+      style={{
+        minHeight: "100vh",
+        backgroundImage: `url(${bgImg})`,
+        backgroundSize: "cover",
+      }}
+    >
       <Content style={{ padding: "50px 50px" }}>
+        <div className="site-layout-content">
+          <h1
+            style={{ textAlign: "center", marginBottom: "30px", color: "#fff" }}
+          >
+            Torrent Direct Downloader
+          </h1>
+        </div>
         <div
           className="site-layout-content"
           style={{
@@ -116,22 +131,34 @@ const App = () => {
           }}
         >
           <Form layout="vertical">
-            <p style={{ textAlign: "left", marginBottom: "10px" }}>
+            <p
+              style={{ textAlign: "left", marginBottom: "10px", color: "#fff" }}
+            >
               Magnet Link
             </p>
-            <div className="magnet-link-container">
+            <div className="magnet-link-container" style={{backgroundColor: "transparent"}}>
               <Form.Item style={{ paddingTop: "20px" }}>
                 <Input
-                  placeholder="Enter magnet link"
+                  placeholder="Enter Magnet Link"
                   value={magnetLink}
                   onChange={(e) => setMagnetLink(e.target.value)}
                   disabled={loading}
+                  style={{ backgroundColor: "#fff", color: "#fff" }}
                 />
               </Form.Item>
             </div>
-            <p style={{ margin: "50px 0 20px 0" }}>OR</p>
+            <p style={{ margin: "50px 0 20px 0", color: "#fff" }}>OR</p>
             <div style={{ width: "600px" }}>
-              <Form.Item label="Upload Torrent File">
+              <p
+                style={{
+                  textAlign: "left",
+                  color: "#fff",
+                  marginBottom: "10px",
+                }}
+              >
+                Upload Torrent File
+              </p>
+              <Form.Item>
                 <Dragger
                   beforeUpload={beforeUpload}
                   fileList={fileList}
@@ -143,12 +170,11 @@ const App = () => {
                   <p className="ant-upload-drag-icon">
                     <InboxOutlined />
                   </p>
-                  <p className="ant-upload-text">
+                  <p className="ant-upload-text" style={{ color: "#fff" }}>
                     Click or drag file to this area to upload
                   </p>
-                  <p className="ant-upload-hint">
-                    Support for a single upload. Strictly prohibit from
-                    uploading company data or other band files
+                  <p className="ant-upload-hint" style={{ color: "#fff" }}>
+                    Support for a single .torrent file upload.
                   </p>
                 </Dragger>
               </Form.Item>
@@ -176,7 +202,15 @@ const App = () => {
           </Form>
         </div>
       </Content>
-      <Footer style={{ textAlign: "center" }}>Torrent Downloader ©2024</Footer>
+      <Footer
+        style={{
+          textAlign: "center",
+          backgroundColor: "transparent",
+          color: "#fff",
+        }}
+      >
+        Developed By Dananjaya ©2024
+      </Footer>
     </Layout>
   );
 };
